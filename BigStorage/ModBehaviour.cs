@@ -14,53 +14,29 @@ namespace BigStorage
         {
             Debug.Log("BigStorage模组：OnAfterSetup方法被调用");
             LoadConfig();
-
-            // 注册场景事件
-            SceneManager.sceneLoaded += OnSceneLoaded;
-            SceneManager.sceneUnloaded += OnSceneUnloaded;
         }
 
-        protected override void OnBeforeDeactivate()
+        void OnEnable()
         {
-            // 取消场景事件注册
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-            SceneManager.sceneUnloaded -= OnSceneUnloaded;
+            TryHookStorage();
         }
 
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        void OnDisable()
         {
-            Debug.Log($"BigStorage模组：场景加载完成 -> {scene.name}");
-            if (scene.name == "Base")
-            {
-                TryHookStorage();
-            }
-        }
-
-        private void OnSceneUnloaded(Scene scene)
-        {
-            Debug.Log($"BigStorage模组：场景卸载 -> {scene.name}");
-            if (scene.name == "Base")
-            {
-                UnhookStorage();
-            }
+            UnhookStorage();
         }
 
         private void TryHookStorage()
         {
-            if (PlayerStorage.Instance != null)
-            {
-                PlayerStorage.OnRecalculateStorageCapacity += OnRecalculateStorageCapacity;
-                Debug.Log("BigStorage模组：成功挂钩 OnRecalculateStorageCapacity 事件");
-            }
+            PlayerStorage.OnRecalculateStorageCapacity -= OnRecalculateStorageCapacity;
+            PlayerStorage.OnRecalculateStorageCapacity += OnRecalculateStorageCapacity;
+            Debug.Log("BigStorage模组：成功挂钩 OnRecalculateStorageCapacity 事件");
         }
 
         private void UnhookStorage()
         {
-            if (PlayerStorage.Instance != null)
-            {
-                PlayerStorage.OnRecalculateStorageCapacity -= OnRecalculateStorageCapacity;
-                Debug.Log("BigStorage模组：取消挂钩 OnRecalculateStorageCapacity 事件");
-            }
+            PlayerStorage.OnRecalculateStorageCapacity -= OnRecalculateStorageCapacity;
+            Debug.Log("BigStorage模组：取消挂钩 OnRecalculateStorageCapacity 事件");
         }
 
         private void OnRecalculateStorageCapacity(PlayerStorage.StorageCapacityCalculationHolder calculationHolder)
