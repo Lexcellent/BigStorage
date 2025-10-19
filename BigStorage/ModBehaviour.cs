@@ -1,51 +1,80 @@
 ﻿using System;
 using System.Reflection;
 using UnityEngine;
-using HarmonyLib;
 using System.IO;
-using ItemStatsSystem;
+using UnityEngine.SceneManagement;
 
 namespace BigStorage
 {
     public class ModBehaviour : Duckov.Modding.ModBehaviour
     {
-        private bool _isInit = false;
-        private Harmony? _harmony = null;
         public static int StorageCapacityIncrease { get; private set; } = 300;
 
         protected override void OnAfterSetup()
         {
             Debug.Log("BigStorage模组：OnAfterSetup方法被调用");
-            if (!_isInit)
-            {
-                LoadConfig();
-                Debug.Log("BigStorage模组：执行修补");
-                _harmony = new Harmony("Lexcellent.BigStorage");
-                _harmony.PatchAll(Assembly.GetExecutingAssembly());
-                _isInit = true;
-                Debug.Log("BigStorage模组：修补完成");
-            }
+            LoadConfig();
+
+            // 注册场景事件
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.sceneUnloaded += OnSceneUnloaded;
         }
 
         protected override void OnBeforeDeactivate()
         {
-            Debug.Log("BigStorage模组：OnBeforeDeactivate方法被调用");
-            if (_isInit)
+            // 取消场景事件注册
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            Debug.Log($"BigStorage模组：场景加载完成 -> {scene.name}");
+            if (scene.name == "Base")
             {
-                Debug.Log("BigStorage模组：执行取消修补");
-                if (_harmony != null)
-                {
-                    _harmony.UnpatchAll();
-                }
-                Debug.Log("BigStorage模组：执行取消修补完毕");
+                TryHookStorage();
             }
+        }
+
+        private void OnSceneUnloaded(Scene scene)
+        {
+            Debug.Log($"BigStorage模组：场景卸载 -> {scene.name}");
+            if (scene.name == "Base")
+            {
+                UnhookStorage();
+            }
+        }
+
+        private void TryHookStorage()
+        {
+            if (PlayerStorage.Instance != null)
+            {
+                PlayerStorage.OnRecalculateStorageCapacity += OnRecalculateStorageCapacity;
+                Debug.Log("BigStorage模组：成功挂钩 OnRecalculateStorageCapacity 事件");
+            }
+        }
+
+        private void UnhookStorage()
+        {
+            if (PlayerStorage.Instance != null)
+            {
+                PlayerStorage.OnRecalculateStorageCapacity -= OnRecalculateStorageCapacity;
+                Debug.Log("BigStorage模组：取消挂钩 OnRecalculateStorageCapacity 事件");
+            }
+        }
+
+        private void OnRecalculateStorageCapacity(PlayerStorage.StorageCapacityCalculationHolder calculationHolder)
+        {
+            Debug.Log($"仓库默认容量：{PlayerStorage.Instance.DefaultCapacity}，holder容量：{calculationHolder.capacity}");
+            calculationHolder.capacity += StorageCapacityIncrease;
         }
 
         private void LoadConfig()
         {
             try
             {
-                string configPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "info.ini");
+                string configPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),
+                    "info.ini");
                 if (File.Exists(configPath))
                 {
                     string[] lines = File.ReadAllLines(configPath);
@@ -70,27 +99,6 @@ namespace BigStorage
             catch (Exception e)
             {
                 Debug.Log($"BigStorage模组：读取配置文件时出错：{e.Message}，使用默认值");
-            }
-        }
-    }
-
-    [HarmonyPatch(typeof(Inventory), nameof(Inventory.Capacity), MethodType.Getter)]
-    public static class InventoryCapacityPatch
-    {
-        [HarmonyPostfix]
-        public static void Postfix(Inventory __instance, ref int __result)
-        {
-            try
-            {
-                if (__instance != null && __instance.DisplayNameKey == "UI_Inventory_Storage")
-                {
-                    Debug.Log($"BigStorage模组：容器名称:{__instance.DisplayName},原始容器容量：{__result}");
-                    __result += ModBehaviour.StorageCapacityIncrease;
-                }
-            }
-            catch (Exception e)
-            {
-                Debug.Log($"BigStorage模组：错误：{e.Message}");
             }
         }
     }
