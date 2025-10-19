@@ -1,8 +1,7 @@
 ﻿using System;
+using System.IO;
 using System.Reflection;
 using UnityEngine;
-using System.IO;
-using UnityEngine.SceneManagement;
 
 namespace BigStorage
 {
